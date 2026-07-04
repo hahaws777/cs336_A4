@@ -1,0 +1,55 @@
+# Assignment data and model artifacts
+CC-MAIN-*/
+*.warc.gz
+*.warc.wet.gz
+*.bin
+*.pt
+*.pth
+data/
+cs336_data/assets/
+
+# Local scripts and outputs
+main.py
+cs336-spring2025-assignment-4-submission.zip
+test_results.xml
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+
+# Virtual environments and tooling
+.venv/
+venv/
+.env
+.python-version
+
+# Test and type-check caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.hypothesis/
+
+# IDE and editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs and temp files
+*.log
+*.tmp
+nav
+tags
