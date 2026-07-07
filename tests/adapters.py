@@ -4,10 +4,12 @@ import os
 import re
 from pathlib import Path
 from typing import Any
-
+import hashlib
+from collections import defaultdict2
 import fasttext
 from resiliparse.extract.html2text import extract_plain_text
 from resiliparse.parse.encoding import detect_encoding
+
 
 
 _LANGUAGE_ID_MODEL = None
@@ -118,6 +120,7 @@ def run_classify_toxic_speech(text: str) -> tuple[Any, float]:
 
 
 def run_classify_quality(text: str) -> tuple[Any, float]:
+    # firstly use our trained fasttext model to classify the quality of the text
 
     raise NotImplementedError
 
@@ -141,10 +144,43 @@ def run_gopher_quality_filter(text: str) -> bool:
         return False
     return True
 
+
+def hash_line(line: str) -> str:
+    return hashlib.sha256(line.encode("utf-8")).hexdigest()
+
+
 def run_exact_line_deduplication(
     input_files: list[os.PathLike], output_directory: os.PathLike
 ):
-    raise NotImplementedError
+
+
+    #initialize a corpus (hashable object) to store the text
+    corpus = defaultdict(int)   
+    # read the text from the input files
+    for input_file in input_files:
+        with open(input_file, "r") as f:
+            # read through each line in the file
+            for line in f:
+                # add the line to the corpus
+                corpus[line] = corpus.get(line, 0) + 1
+                
+    # write the corpus to the output directory
+    for input_file in input_files:
+        with open(input_file, "r") as f:
+            with open(output_directory / input_file.name, "w") as f_out:
+                for line in f:
+                    if corpus.get(line, 0) == 1:
+                        f_out.write(line)
+                    else:
+                        continue
+                f_out.close()
+            f.close()
+        output_directory.close()
+    input_files.close()
+    output_directory.close()
+    return output_directory
+
+
 
 
 def run_minhash_deduplication(
