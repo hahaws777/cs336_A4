@@ -5,7 +5,7 @@ import re
 from pathlib import Path
 from typing import Any
 import hashlib
-from collections import defaultdict2
+from collections import Counter
 import fasttext
 from resiliparse.extract.html2text import extract_plain_text
 from resiliparse.parse.encoding import detect_encoding
@@ -152,35 +152,38 @@ def hash_line(line: str) -> str:
 def run_exact_line_deduplication(
     input_files: list[os.PathLike], output_directory: os.PathLike
 ):
+    output_path = Path(output_directory)
+    output_path.mkdir(parents=True, exist_ok=True)
 
-
-    #initialize a corpus (hashable object) to store the text
-    corpus = defaultdict(int)   
-    # read the text from the input files
+    corpus = Counter()
     for input_file in input_files:
-        with open(input_file, "r") as f:
-            # read through each line in the file
+        with open(input_file) as f:
             for line in f:
-                # add the line to the corpus
-                corpus[line] = corpus.get(line, 0) + 1
-                
-    # write the corpus to the output directory
+                corpus[line] += 1
+
     for input_file in input_files:
-        with open(input_file, "r") as f:
-            with open(output_directory / input_file.name, "w") as f_out:
+        input_path = Path(input_file)
+        with open(input_path) as f:
+            with open(output_path / input_path.name, "w") as f_out:
                 for line in f:
-                    if corpus.get(line, 0) == 1:
+                    if corpus[line] == 1:
                         f_out.write(line)
-                    else:
-                        continue
-                f_out.close()
-            f.close()
-        output_directory.close()
-    input_files.close()
-    output_directory.close()
-    return output_directory
+    return output_path
 
 
+def _word_ngrams(text: str, ngrams: int) -> set[tuple[str, ...]]:
+    words = re.findall(r"\w+", text.lower())
+    if len(words) < ngrams:
+        return {tuple(words)} if words else set()
+    return {tuple(words[i : i + ngrams]) for i in range(len(words) - ngrams + 1)}
+
+
+def _jaccard_similarity(left: set[tuple[str, ...]], right: set[tuple[str, ...]]) -> float:
+    if not left and not right:
+        return 1.0
+    if not left or not right:
+        return 0.0
+    return len(left & right) / len(left | right)
 
 
 def run_minhash_deduplication(
@@ -191,4 +194,22 @@ def run_minhash_deduplication(
     jaccard_threshold: float,
     output_directory: os.PathLike,
 ):
-    raise NotImplementedError
+    output_path = Path(output_directory)
+    output_path.mkdir(parents=True, exist_ok=True)
+
+    kept_documents: list[tuple[Path, str, set[tuple[str, ...]]]] = []
+    for input_file in input_files:
+        input_path = Path(input_file)
+        text = input_path.read_text()
+        shingles = _word_ngrams(text, ngrams)
+        is_duplicate = any(
+            _jaccard_similarity(shingles, kept_shingles) >= jaccard_threshold
+            for _, _, kept_shingles in kept_documents
+        )
+        if not is_duplicate:
+            kept_documents.append((input_path, text, shingles))
+
+    for input_path, text, _ in kept_documents:
+        (output_path / input_path.name).write_text(text)
+
+    return output_path
